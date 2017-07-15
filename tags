@@ -1,0 +1,50 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+KERNEL32	new.py	/^        KERNEL32 = ctypes.windll.kernel32$/;"	v
+KERNEL32	terminalhistory.py	/^        KERNEL32 = ctypes.windll.kernel32$/;"	v
+TempHistory	new.py	/^class TempHistory:$/;"	c
+TempHistory	terminalhistory.py	/^class TempHistory:$/;"	c
+TerminalHistory	new.py	/^class TerminalHistory(TempHistory):$/;"	c
+TerminalHistory	terminalhistory.py	/^class TerminalHistory(TempHistory):$/;"	c
+__init__	new.py	/^    def __init__(self):$/;"	m	class:TempHistory
+__init__	new.py	/^    def __init__(self):$/;"	m	class:TerminalHistory
+__init__	terminalhistory.py	/^    def __init__(self):$/;"	m	class:TempHistory
+__init__	terminalhistory.py	/^    def __init__(self):$/;"	m	class:TerminalHistory
+_handle_bs	new.py	/^    def _handle_bs(self, text):$/;"	m	class:TempHistory
+_record	new.py	/^    def _record(self, text):$/;"	m	class:TempHistory
+_record	new.py	/^    def _record(self, text):$/;"	m	class:TerminalHistory
+_record	terminalhistory.py	/^    def _record(self, text):$/;"	m	class:TempHistory
+_record	terminalhistory.py	/^    def _record(self, text):$/;"	m	class:TerminalHistory
+_undo_newline	new.py	/^    def _undo_newline(self):$/;"	m	class:TempHistory
+_undo_newline	terminalhistory.py	/^    def _undo_newline(self):$/;"	m	class:TempHistory
+colorama	new.py	/^        import colorama$/;"	i
+colorama	terminalhistory.py	/^        import colorama$/;"	i
+ctypes	new.py	/^        import ctypes$/;"	i
+ctypes	terminalhistory.py	/^        import ctypes$/;"	i
+enable_print_after_input	new.py	/^def enable_print_after_input():$/;"	f
+input	new.py	/^    def input(self, prompt="", newline=True):$/;"	m	class:TempHistory
+input	terminalhistory.py	/^    def input(self, prompt="", newline=True, record=True):$/;"	m	class:TempHistory
+input	terminalhistory.py	/^    input = record.input$/;"	v	class:TerminalHistory
+line	new.py	/^    def line(self):$/;"	m	class:TerminalHistory
+line	new.py	/^    def line(self, text):$/;"	m	class:TerminalHistory
+line	terminalhistory.py	/^    def line(self):$/;"	m	class:TerminalHistory
+line	terminalhistory.py	/^    def line(self, text):$/;"	m	class:TerminalHistory
+logging	new.py	/^import logging$/;"	i
+name	new.py	/^    name = input(newline=False)$/;"	v
+name	terminalhistory.py	/^    name = input(newline=False)$/;"	v	class:TerminalHistory
+os	new.py	/^import os$/;"	i
+platform	new.py	/^import platform$/;"	i
+platform	terminalhistory.py	/^import platform$/;"	i
+print	new.py	/^    def print($/;"	m	class:TempHistory
+print	terminalhistory.py	/^    def print(self, *values, sep=" ", end="\\n", file=sys.stdout, flush=False,$/;"	m	class:TempHistory
+print	terminalhistory.py	/^    print = record.print$/;"	v	class:TerminalHistory
+re	new.py	/^import re$/;"	i
+readline	new.py	/^    import readline$/;"	i
+readline	terminalhistory.py	/^    import readline$/;"	i
+record	terminalhistory.py	/^    record = TerminalHistory()$/;"	v	class:TerminalHistory
+sys	new.py	/^import sys$/;"	i
+sys	terminalhistory.py	/^import sys$/;"	i

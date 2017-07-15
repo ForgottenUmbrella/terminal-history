@@ -11,16 +11,22 @@ line, and therefore needs to record every line written.
   the terminal (but only if its methods are used)
 
 ### Methods
-* `print(*values, sep=' ', end='\n', file=sys.stdout, flush=False, record=True` - behaves the same as the built-in `print` function, except it also
-  records what's being printed if `record` is True
-* `input(prompt='', record=True, newline=True)` - behaves the same as the built-in `input` function, except it also
-  records what's being prompted and typed, as well as stripping the newline if
-  `newline` is False
+* `print(*values, sep=' ', end='\n', file=sys.stdout, flush=False, record=True`
+- behaves the same as the built-in `print` function, except it also records
+what's being printed if `record` is True
+* `input(prompt='', record=True, newline=True)` - behaves the same as the
+built-in `input` function, except it also records what's being prompted and
+typed, as well as stripping the newline if `newline` is False
 
 ### Attributes
 * For TempHistory, `line` - the latest line echoed to the terminal
 * For TerminalHistory, `lines` - a list of all lines echoed to the terminal via
-  the `print` and `input` methods
+the `print` and `input` methods
+
+## Functions
+* `enable_print_after_input` - convenience function to override the built-in
+`print` and `input` functions with ones that record output, enabling printing
+after getting input (as the name suggests)
 
 ## Example Usage
     import terminalhistory  # What's the convention for naming these anyway?
@@ -46,3 +52,4 @@ Output:
 * Implement `read`, `readline` and `readlines` methods that replace
   `sys.stdin.read`, `sys.stdin.readline` and `sys.stdin.readlines` respectively,
   except with the additional recording functionality as well
+* Handle long strings when navigating cursor back to previous position

@@ -2,16 +2,11 @@
 # encoding=utf-8
 """Provide classes for storing lines from the terminal."""
 import sys
-import os
 import platform
-import re
-import logging
-
-# logging.basicConfig(level=logging.INFO)
 
 if platform.system() == "Windows":
     try:
-        # Enable ANSI support (for Windows 10 >= v1511).
+        # Enable ANSI support (for Windows 10 >= v1511)
         import colorama
     except ImportError:
         import ctypes
@@ -37,21 +32,11 @@ class TempHistory:
         `line` is initially set to "\n" so that the `_record` method
         doesn't raise an error about the string index being out of
         range.
+
         """
-        self.TERMINATOR = "\n"
-        self.line = self.TERMINATOR
+        self.line = "\n"
         self.builtin_print = print
         self.builtin_input = input
-
-    def _handle_bs(self, text):
-        """Expand backspaces."""
-        logging.info(f"(_bs) before, text =\n{repr(text)}")
-        regex = re.compile(".\b")
-        while regex.match(text):
-            logging.info(f"match = {regex.match(text)}")
-            text = re.sub(regex, "", text)
-            logging.info(f"(_bs) after, text =\n{repr(text)}")
-        return text
 
     def _record(self, text):
         """Append `text` to `line` or overwrite it if it has ended.
@@ -60,23 +45,21 @@ class TempHistory:
         happens.
 
         """
-        text = self._handle_bs(text)
         if text == "":
             # Allow flexibility in calling the method.
-            logging.debug("Premature return from _record.")
             return
-        lines = text.split(self.TERMINATOR)
+        lines = text.split("\n")
         # If `text` has terminated, then `lines` will not have the
         # termination stored, since it was formed by using the
         # terminator as a delimiter. Take this into account by reading
         # the "second last" line instead, with the terminator affixed.
-        if text[-1] == self.TERMINATOR:
-            last_line = lines[-2] + self.TERMINATOR
+        if text[-1] == "\n":
+            last_line = lines[-2] + "\n"
         else:
             last_line = lines[-1]
         # Take into account carriage return abuse.
         last_line = last_line.split("\r")[-1]
-        line_has_ended = (self.line[-1] == self.TERMINATOR)
+        line_has_ended = self.line[-1] == "\n"
         if line_has_ended:
             self.line = last_line
         else:
@@ -97,15 +80,18 @@ class TempHistory:
         (making it the current line again).
 
         """
-        # line_length = len(self.line.lstrip("\b"))
         line_length = len(self.line)
-        self.builtin_print(
-            f"\x1b[{line_length}C\x1b[1A", end="", flush=True
-            )
-        logging.debug(f"line_length = {line_length}")
+        # Take into account backspaces.
+        for i, char in enumerate(self.line[1:]):
+            prev_char = self.line[i-1]
+            # HACK: Why must `prev_char` not be a backspace?
+            if char == "\b" and prev_char != "\b":
+                line_length -= 2
+        self.print(f"\x1b[{line_length}C\x1b[1A", end="", flush=True,
+                   record=False)
 
-    def print(
-            self, *values, sep=" ", end="\n", file=sys.stdout, flush=False):
+    def print(self, *values, sep=" ", end="\n", file=sys.stdout, flush=False,
+              record=True):
         """Print to `file` and record the printed text.
 
         Other than recording the printed text, it behaves exactly like
@@ -113,12 +99,11 @@ class TempHistory:
 
         """
         self.builtin_print(*values, sep=sep, end=end, file=file, flush=flush)
-        logging.debug(f"file = {file}")
-        if file == sys.stdout:
+        if record:
             text = sep.join([str(value) for value in values]) + end
             self._record(text)
 
-    def input(self, prompt="", newline=True):
+    def input(self, prompt="", newline=True, record=True):
         """Return one line of user input and record the echoed text.
 
         Other than storing the echoed text and optionally stripping the
@@ -126,10 +111,11 @@ class TempHistory:
         function.
 
         """
+        if prompt == "":
+            # Clear any ghosted output.
+            prompt = " \b"
         response = self.builtin_input(prompt)
-        using_stdin = (os.fstat(0) == os.fstat(1))
-        logging.debug(f"using stdin? {using_stdin}")
-        if using_stdin:
+        if record:
             self._record(prompt)
             self._record(response)
         if not newline:
@@ -142,7 +128,6 @@ class TerminalHistory(TempHistory):
 
     def __init__(self):
         """Initialise the list of terminal lines."""
-        # Needs to be defined before super because of line property.
         self.lines = [""]
         super().__init__()
         self.line = ""
@@ -156,7 +141,6 @@ class TerminalHistory(TempHistory):
     def line(self, text):
         """Set the last line."""
         self.lines[-1] = text
-        logging.info(f"line = {repr(text)}")
 
     def _record(self, text):
         """Append `text` to `line` or `lines`.
@@ -166,38 +150,24 @@ class TerminalHistory(TempHistory):
         line.
 
         """
-        text = self._handle_bs(text)
-        # TODO: expandtabs for everything
-        if text == "":
+        if text == "" or text == " \b":
             return
-        lines = [
-            line.split("\r")[-1] + self.TERMINATOR
-            for line in text.split(self.TERMINATOR) if line
-            ]
-        if text[-1] != self.TERMINATOR:
+        lines = [line.split("\r")[-1] + "\n" for line in text.split("\n") if line]
+        if text[-1] != "\n":
             lines[-1] = lines[-1][:-1]
         for line in lines:
             if self.line == "":
                 self.line = line
-            elif self.line[-1] == self.TERMINATOR:
+            elif self.line[-1] == "\n":
                 self.lines.append(line)
             else:
-                # self.line = (self.line + line).expandtabs()
-                self.line = self.line + line
+                self.line += line
         return
 
-
-def enable_print_after_input():
-    """Overshadow the built-in `print` and `input` functions."""
-    global print
-    global input
+if __name__ == "__main__":
     record = TerminalHistory()
     print = record.print
     input = record.input
-
-
-if __name__ == "__main__":
-    enable_print_after_input()
 
     print("\b\bHello, ", end="", flush=True)
     name = input(newline=False)

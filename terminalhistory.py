@@ -50,27 +50,29 @@ class TempHistory:
         happens.
 
         """
-        text = self._handle_bs(text)
         if text == "":
             # Allow flexibility in calling the method.
             logging.debug("Premature return from _record.")
             return
-        lines = text.split(self.TERMINATOR)
-        # If `text` has terminated, then `lines` will not have the
-        # termination stored, since it was formed by using the
-        # terminator as a delimiter. Take this into account by reading
-        # the "second last" line instead, with the terminator affixed.
-        if text[-1] == self.TERMINATOR:
-            last_line = lines[-2] + self.TERMINATOR
+        lines = handle_nl(text)
+        prev_line_ended = (self.line[-1] == self.END)
+
+        if prev_line_ended:
+            # Account for `handle_bs` being unable to remove backspaces
+            # at the start of lines due to having no context.
+            # `.lstrip` can't be called in `handle_bs` because
+            # backspaces at the start could be valid when text comes
+            # after a line without a newline.
+            # NOTE: This is potentially incompatible with Windows'
+            # conhost.exe.
+            self.line = lines[-1].lstrip("\b")
         else:
-            last_line = lines[-1]
-        # Take into account carriage return abuse.
-        last_line = last_line.split("\r")[-1]
-        line_has_ended = (self.line[-1] == self.TERMINATOR)
-        if line_has_ended:
-            self.line = last_line
-        else:
-            self.line += last_line
+            self.line += lines[-1]
+            # Account for potential backspace in beginning of the last
+            # line combining with `self.line` to form regex match which
+            # should be removed.
+            self.line = handle_bs(self.line)
+        logging.info(f"self.line = {repr(self.line)}")
         return
 
     def _undo_newline(self):

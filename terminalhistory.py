@@ -7,7 +7,7 @@ import platform
 import re
 import logging
 
-# logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, filename="log.log", filemode="w")
 
 if platform.system() == "Windows":
     try:

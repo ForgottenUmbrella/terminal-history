@@ -15,8 +15,8 @@ if platform.system() == "Windows":
         import colorama
     except ImportError:
         import ctypes
-        KERNEL32 = ctypes.windll.kernel32
-        KERNEL32.SetConsoleMode(KERNEL32.GetStdHandle(-11), 7)
+        kernel32 = ctypes.windll.kernel32
+        kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
     else:
         colorama.init()
 else:
@@ -32,14 +32,11 @@ class TempHistory:
     """
 
     def __init__(self):
-        """Initialise `line` and save the `print` and `input` functions.
-
-        `line` is initially set to "\n" so that the `_record` method
-        doesn't raise an error about the string index being out of
-        range.
-        """
-        self.END = "\n"
-        self.line = self.END
+        """Initialise `line` and save `print` and `input` functions."""
+        # `line` is initially set to "\n" so that the `_record` method
+        # doesn't raise an error about the string index being out of
+        # range.
+        self.line = "\n"
         self.builtin_print = print
         self.builtin_input = input
 
@@ -55,7 +52,7 @@ class TempHistory:
             logging.debug("Premature return from _record.")
             return
         lines = handle_nl(text)
-        prev_line_ended = (self.line[-1] == self.END)
+        prev_line_ended = (self.line[-1] == "\n")
 
         if prev_line_ended:
             # Account for `handle_bs` being unable to remove backspaces
@@ -130,7 +127,7 @@ class TempHistory:
 
 
 class TerminalHistory(TempHistory):
-    """Record ALL lines from the terminal (from instantiation onwards)."""
+    """Record all lines from the terminal."""
 
     def __init__(self):
         """Initialise the list of terminal lines."""
@@ -163,7 +160,7 @@ class TerminalHistory(TempHistory):
             logging.debug("Premature return from _record.")
             return
         lines = handle_nl(text)
-        prev_line_ended = (self.line[-1] == self.END)
+        prev_line_ended = (self.line[-1] == "\n")
 
         # Handle first assignment's dummy value.
         if self.line is None:
@@ -227,13 +224,12 @@ def handle_nl(text):
     return lines
 
 
-def enable_print_after_input(temp=False):
+def enable_print_after_input(use_temp=False):
     """Overshadow the built-in `print` and `input` functions."""
     global print
     global input
     record = TerminalHistory()
-    # TODO: remove debug
-    if temp:
+    if use_temp:
         record = TempHistory()
     print = record.print
     input = record.input

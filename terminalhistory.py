@@ -96,16 +96,17 @@ class TempHistory:
         logging.debug(f"line_length = {line_length}")
 
     def print(
-            self, *values, sep=" ", end="\n", file=sys.stdout, flush=False):
+            self, *values, sep=" ", end="\n", file=sys.stdout, flush=False,
+            record=True):
         """Print to `file` and record the printed text.
 
-        Other than recording the printed text, it behaves exactly like
-        the built-in `print` function.
+        Other than recording the printed text by default, it behaves
+        exactly like the built-in `print` function.
 
         """
         self.builtin_print(*values, sep=sep, end=end, file=file, flush=flush)
         logging.debug(f"file = {file}")
-        if file == sys.stdout:
+        if record and file in (sys.stdout, None):
             text = sep.join([str(value) for value in values]) + end
             self._record(text)
 

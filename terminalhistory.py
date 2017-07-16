@@ -52,7 +52,7 @@ class TempHistory:
             logging.debug("Premature return from _record.")
             return
         lines = handle_nl(text)
-        prev_line_ended = (self.line[-1] == "\n")
+        prev_line_ended = (self.line is None or self.line[-1] == "\n")
 
         if prev_line_ended:
             # Account for `handle_bs` being unable to remove backspaces
@@ -131,21 +131,27 @@ class TerminalHistory(TempHistory):
 
     def __init__(self):
         """Initialise the list of terminal lines."""
-        # Needs to be defined before super because of line property.
-        self.lines = [""]
+        # Needs to be defined before super because of `line` property.
+        # self.lines = [None]
+        self.lines = []
         super().__init__()
-        self.line = None
 
     @property
     def line(self):
         """Return the last line."""
+        # If `self.lines` hasn't been initialised yet, it'll fail.
+        if not self.lines:
+            return None
         return self.lines[-1]
 
     @line.setter
     def line(self, text):
         """Set the last line."""
+        if not self.lines:
+            return
         self.lines[-1] = text
         logging.info(f"line = {repr(text)}")
+        return
 
     def _record(self, text):
         """Append `text` to current `line` or list of `lines`.
@@ -160,16 +166,17 @@ class TerminalHistory(TempHistory):
             logging.debug("Premature return from _record.")
             return
         lines = handle_nl(text)
-        prev_line_ended = (self.line[-1] == "\n")
-
         # Handle first assignment's dummy value.
-        if self.line is None:
-            self.line = lines.pop(0).lstrip("\b")
+        # if self.line is None:
+        #     self.line = lines.pop(0).lstrip("\b")
+        # prev_line_ended = (self.line[-1] == "\n")
+        prev_line_ended = (self.line is None or self.line[-1] == "\n")
 
         for line in lines:
             if prev_line_ended:
                 self.lines.append(line.lstrip("\b"))
             else:
+                self._prev_segment = self.line
                 # XXX: self.line = (self.line + line).expandtabs()
                 self.line += line
                 self.line = handle_bs(self.line)

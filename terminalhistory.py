@@ -89,7 +89,6 @@ class TempHistory:
         (making it the current line again).
 
         """
-        # line_length = len(self.line.lstrip("\b"))
         line_length = len(self.line)
         self.builtin_print(
             f"\x1b[{line_length}C\x1b[1A", end="", flush=True
@@ -137,7 +136,7 @@ class TerminalHistory(TempHistory):
         # Needs to be defined before super because of line property.
         self.lines = [""]
         super().__init__()
-        self.line = ""
+        self.line = None
 
     @property
     def line(self):

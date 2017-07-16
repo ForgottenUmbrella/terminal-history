@@ -38,20 +38,10 @@ class TempHistory:
         doesn't raise an error about the string index being out of
         range.
         """
-        self.TERMINATOR = "\n"
-        self.line = self.TERMINATOR
+        self.END = "\n"
+        self.line = self.END
         self.builtin_print = print
         self.builtin_input = input
-
-    def _handle_bs(self, text):
-        """Expand backspaces."""
-        logging.info(f"(_bs) before, text =\n{repr(text)}")
-        regex = re.compile(".\b")
-        while regex.match(text):
-            logging.info(f"match = {regex.match(text)}")
-            text = re.sub(regex, "", text)
-            logging.info(f"(_bs) after, text =\n{repr(text)}")
-        return text
 
     def _record(self, text):
         """Append `text` to `line` or overwrite it if it has ended.
@@ -159,47 +149,112 @@ class TerminalHistory(TempHistory):
         logging.info(f"line = {repr(text)}")
 
     def _record(self, text):
-        """Append `text` to `line` or `lines`.
+        """Append `text` to current `line` or list of `lines`.
 
         Overrides TempHistory's `_record' method, preventing overwriting
         when the line is finished and instead simply creating another
         line.
 
         """
-        text = self._handle_bs(text)
         # TODO: expandtabs for everything
         if text == "":
+            logging.debug("Premature return from _record.")
             return
-        lines = [
-            line.split("\r")[-1] + self.TERMINATOR
-            for line in text.split(self.TERMINATOR) if line
-            ]
-        if text[-1] != self.TERMINATOR:
-            lines[-1] = lines[-1][:-1]
+        lines = handle_nl(text)
+        prev_line_ended = (self.line[-1] == self.END)
+
+        # Handle first assignment's dummy value.
+        if self.line is None:
+            self.line = lines.pop(0).lstrip("\b")
+
         for line in lines:
-            if self.line == "":
-                self.line = line
-            elif self.line[-1] == self.TERMINATOR:
-                self.lines.append(line)
+            if prev_line_ended:
+                self.lines.append(line.lstrip("\b"))
             else:
-                # self.line = (self.line + line).expandtabs()
-                self.line = self.line + line
+                # XXX: self.line = (self.line + line).expandtabs()
+                self.line += line
+                self.line = handle_bs(self.line)
         return
 
 
-def enable_print_after_input():
+def handle_bs(text):
+    """Return text with backspaces replaced with nothing."""
+    original = text
+    regex = re.compile(".\b")
+    # Do not use the `.match` method. It only works at the beginning of
+    # strings.
+    while regex.search(text):
+        logging.info(f"match = {regex.search(text)}")
+        text = re.sub(regex, "", text)
+    if text != original:
+        logging.info(f"(bs) before, text ={repr(original)}")
+        logging.info(f"(bs) after, text ={repr(text)}")
+    return text
+
+
+def handle_cr(text):
+    """Return final text from carriage return abuse."""
+    text_versions = text.split("\r")
+    real_text = text_versions[-1]
+    if real_text != text:
+        logging.info(f"(cr) before, text ={repr(text)}")
+        logging.info(f"(cr) after, text={repr(real_text)}")
+    return real_text
+
+
+def handle_nl(text):
+    """Return a list of lines with their terminators attached."""
+    END = "\n"
+    lines = []
+    for line in text.split(END):
+        real_line = handle_bs(handle_cr(line))
+        # `END` was stripped, so it needs to be appended again.
+        real_line += END
+        lines.append(real_line)
+    text_ended = (text[-1] == END)
+    if text_ended:
+        # When splitting all terminated lines, the last element of the
+        # list was an empty string. One would consider `lines[-2]` to be
+        # the true last line, so get rid of the fake.
+        lines.pop()
+    else:
+        # `END` was appended in the loop to all lines, including
+        # the last. The last line might not have had an `END`, so
+        # it'll need to be stripped again.
+        lines[-1] = lines[-1].rstrip(END)
+    return lines
+
+
+def enable_print_after_input(temp=False):
     """Overshadow the built-in `print` and `input` functions."""
     global print
     global input
     record = TerminalHistory()
+    # TODO: remove debug
+    if temp:
+        record = TempHistory()
     print = record.print
     input = record.input
 
 
 if __name__ == "__main__":
     enable_print_after_input()
+    # enable_print_after_input(True)
 
-    print("\b\bHello, ", end="", flush=True)
+    # hello = "\b\bHello, "
+    # hello = "\bHe\rHello, "
+    # hello = "\bHello, "
+    # hello = "He\r\b\bHello, "
+    # hello = "\r\b\bHello, "
+    # hello = "He\r\bHello, "
+    hello = "\bHe\b\r\bHell\blo, \b "
+
+    print(hello, end="")
     name = input(newline=False)
-    print(", how do you do?")
-    print("next line")
+    print(" ", end="")
+    print("\b, how do you do? ", end="")
+    input(newline=False)
+    print(". Is this unaligned?")
+    # with open("log.log") as log:
+    #     for line in log:
+    #         sys.stdout.write(line)

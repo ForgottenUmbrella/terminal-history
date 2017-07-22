@@ -25,7 +25,7 @@ else:
 
 
 class TempHistory:
-    """Record one line from the terminal.
+    """Record the current printing line from the terminal.
 
     Note: I use the term "echo" to refer to when text is
     shown on the terminal but might not be written to `sys.stdout`.
@@ -33,22 +33,22 @@ class TempHistory:
 
     def __init__(self):
         """Initialise variables and save overwritten built-ins."""
-        self.line = ""
+        self.current_line = ""
         # Used to handle long lines.
         self._prev_segment = ""
         self.builtin_print = print
         self.builtin_input = input
 
     def _reset_line(self, text):
-        """Assign `text` to `self.line` once it has terminated.
+        """Assign `text` to `self.current_line` once it has terminated.
 
-        Method to be overridden by child classes.
+        To be overridden by child classes.
         """
-        self.line = text
+        self.current_line = text
 
 
     def _record(self, text):
-        """Append `text` to `line` or overwrite it if it has ended.
+        """Change `self.current_line` to reflect the current line.
 
         `text` may be empty, for flexibility, in which case nothing
         happens.
@@ -64,13 +64,13 @@ class TempHistory:
             lines.append("")
 
         for line in lines:
-            prev_line_ended = (self.line[-1] == "\n")
+            prev_line_ended = (self.current_line[-1] == "\n")
             if prev_line_ended:
                 self._prev_segment = ""
                 self._reset_line(line)
             else:
-                self._prev_segment = self.line
-                self.line += line
+                self._prev_segment = self.current_line
+                self.current_line += line
 
         # XXX
         # if prev_line_ended:
@@ -80,15 +80,15 @@ class TempHistory:
         #     # backspaces at the start could be valid when text comes
         #     # after a line without a newline.
         #     # NOTE: This is incompatible with Windows Powershell.
-        #     self.line = last_line.lstrip("\b")
+        #     self.current_line = last_line.lstrip("\b")
         # else:
-        #     self._prev_segment = self.line
-        #     self.line += lines[-1]
+        #     self._prev_segment = self.current_line
+        #     self.current_line += lines[-1]
         #     # Account for potential backspace in beginning of the last
-        #     # line combining with `self.line` to form regex match which
+        #     # line combining with `self.current_line` to form regex match which
         #     # should be removed.
-        #     self.line = handle_bs(self.line)
-        logging.info(f"self.line = {repr(self.line)}")
+        #     self.current_line = handle_bs(self.current_line)
+        logging.info(f"self.current_line = {repr(self.current_line)}")
         return
 
     def _undo_newline(self):
@@ -104,10 +104,11 @@ class TempHistory:
         the end of the previous line, and then move up into said line
         (making it the current line again).
         """
+        line = self.current_line.expandtabs()
         # terminal_width = shutil.get_terminal_size().columns
         # logging.info(f"terminal_width = {terminal_width}")
-        line_length = len(self.line)
-        # logging.info(f"self.line = {repr(self.line)}")
+        line_length = len(self.current_line)
+        # logging.info(f"self.current_line = {repr(self.current_line)}")
         # logging.info(f"(original) line_length = {line_length}")
         # if line_length > terminal_width:
         #     # Modulo the previous segment to handle wrapping if it was
@@ -171,8 +172,8 @@ class TerminalHistory(TempHistory):
         super().__init__()
 
     @property
-    def line(self):
-        """Return the last line."""
+    def current_line(self):
+        """Return the current line."""
         # If `self.lines` hasn't been initialised yet, it'll fail.
         try:
             return self.lines[-1]
@@ -180,9 +181,9 @@ class TerminalHistory(TempHistory):
             logging.debug("line referenced but not yet initialised.")
             return None
 
-    @line.setter
-    def line(self, text):
-        """Set the last line."""
+    @current_line.setter
+    def current_line(self, text):
+        """Set the current line."""
         try:
             self.lines[-1] = text
         except IndexError:
@@ -207,24 +208,22 @@ class TerminalHistory(TempHistory):
     #         logging.debug("Premature return from _record.")
     #         return
     #     lines = handle_nl(text)
-    #     prev_line_ended = (self.line[-1] == "\n")
+    #     prev_line_ended = (self.current_line[-1] == "\n")
 
     #     for line in lines:
     #         if prev_line_ended:
     #             self.lines.append(line.lstrip("\b"))
     #         else:
-    #             self._prev_segment = self.line
-    #             # self.line = (self.line + line).expandtabs()
-    #             self.line += line
-    #             self.line = handle_bs(self.line)
+    #             self._prev_segment = self.current_line
+    #             # self.current_line = (self.current_line + line).expandtabs()
+    #             self.current_line += line
+    #             self.current_line = handle_bs(self.current_line)
 
 
 def handle_bs(text):
     """Return text with backspaces replaced with nothing."""
     original = text
     regex = re.compile(".\b")
-    # Do not use the `.match` method. It only works at the beginning of
-    # strings.
     logging.debug(f"(bs) match = {regex.search(text)}")
     text = re.sub(regex, "", text)
     if text != original:

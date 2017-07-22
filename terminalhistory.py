@@ -242,34 +242,11 @@ def handle_cr(text):
     return real_text
 
 
-def handle_nl(text):
-    """Return a list of lines with their terminators attached."""
-    END = "\n"
-    lines = []
-    for line in text.split(END):
-        real_line = handle_bs(handle_cr(line))
-        # `END` was stripped, so it needs to be appended again.
-        real_line += END
-        lines.append(real_line)
-    text_ended = (text[-1] == END)
-    if text_ended:
-        # When splitting all terminated lines, the last element of the
-        # list was an empty string. One would consider `lines[-2]` to be
-        # the true last line, so get rid of the fake.
-        lines.pop()
-    else:
-        # `END` was appended in the loop to all lines, including
-        # the last. The last line might not have had an `END`, so
-        # it'll need to be stripped again.
-        lines[-1] = lines[-1].rstrip(END)
-    return lines
-
-
 def _enable_print_after_input(record_all=False):
     """Conveniently shadow built-in functions.
 
-    Use either `TempHistory` or `TerminalHistory`, which consumes more
-    memory, for testing purposes.
+    Use either `TempHistory` or `TerminalHistory` (which consumes more
+    memory), for testing purposes.
     """
     global print  # pylint: disable=global-variable-undefined
     global input  # pylint: disable=global-variable-undefined

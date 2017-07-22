@@ -4,7 +4,7 @@
 import sys
 import os
 import platform
-import shutil
+# import shutil
 import re
 import logging
 
@@ -33,9 +33,7 @@ class TempHistory:
 
     def __init__(self):
         """Initialise variables and save overwritten built-ins."""
-        self.current_line = ""
-        # Used to handle long lines.
-        self._prev_segment = ""
+        self.current_line = None
         self.builtin_print = print
         self.builtin_input = input
 
@@ -57,38 +55,19 @@ class TempHistory:
         if text == "":
             logging.debug("Premature return from _record.")
             return
-
         lines = text.splitlines(True)
         # Ensure the last line in `lines` is the current available line.
         if lines[-1][-1] == "\n":
             lines.append("")
-
         for line in lines:
-            prev_line_ended = (self.current_line[-1] == "\n")
+            prev_line_ended = (
+                self.current_line is None or self.current_line[-1] == "\n"
+                )
             if prev_line_ended:
-                self._prev_segment = ""
                 self._reset_line(line)
             else:
-                self._prev_segment = self.current_line
                 self.current_line += line
-
-        # XXX
-        # if prev_line_ended:
-        #     # Account for `handle_bs` being unable to remove backspaces
-        #     # at the start of lines due to having no context.
-        #     # `.lstrip` can't be called in `handle_bs` because
-        #     # backspaces at the start could be valid when text comes
-        #     # after a line without a newline.
-        #     # NOTE: This is incompatible with Windows Powershell.
-        #     self.current_line = last_line.lstrip("\b")
-        # else:
-        #     self._prev_segment = self.current_line
-        #     self.current_line += lines[-1]
-        #     # Account for potential backspace in beginning of the last
-        #     # line combining with `self.current_line` to form regex match which
-        #     # should be removed.
-        #     self.current_line = handle_bs(self.current_line)
-        logging.info(f"self.current_line = {repr(self.current_line)}")
+        logging.debug(f"self.current_line = {repr(self.current_line)}")
         return
 
     def _undo_newline(self):
@@ -104,13 +83,32 @@ class TempHistory:
         the end of the previous line, and then move up into said line
         (making it the current line again).
         """
-        line = self.current_line.expandtabs()
+        # Make a copy so the original doesn't get modified.
+        line = self.current_line
+        logging.info(f"line = {repr(line)}")
+        # Remove zero-space characters (\a).
+        line = line.replace("\a", "")
+        logging.debug(f"(a) line = {repr(line)}")
+        # Consider final output after carriage returns.
+        line = line.split("\r")[-1]
+        logging.debug(f"(r) line = {repr(line)}")
+        # Consider final output after characters that shouldn't be used.
+        line = expand_obscure_chars(line).split("\n")[-1]
+        logging.debug(f"(vt,ff) line = {repr(line)}")
+        # Represent non-monospace tabs as multiple spaces.
+        line = line.expandtabs()
+        logging.debug(f"(t) line = {repr(line)}")
+        # Backspaces should be negative length, so just get rid of them.
+        line = apply_bs(line)
+        logging.debug(f"(b) line = {repr(line)}")
+        # XXX: Handle long lines.
+        # line = terminal_wrap(line, self._prev_segment)[-1]
+        # logging.debug(f"(%) line = {repr(line)}")
+
         # terminal_width = shutil.get_terminal_size().columns
-        # logging.info(f"terminal_width = {terminal_width}")
-        line_length = len(self.current_line)
-        # logging.info(f"self.current_line = {repr(self.current_line)}")
-        # logging.info(f"(original) line_length = {line_length}")
-        # if line_length > terminal_width:
+        # logging.debug(f"terminal_width = {terminal_width}")
+        line_length = len(line)
+        # XXX: if line_length > terminal_width:
         #     # Modulo the previous segment to handle wrapping if it was
         #     # really long.
         #     prev_length = len(self._prev_segment) % terminal_width
@@ -120,14 +118,14 @@ class TempHistory:
         #     logging.info(f"(-) line_length = {line_length}")
         # # Modulo the width to handle the long current line wrapping.
         # # NOTE: Modulo operations are incompatible with Windows
-        # Powershell due to it handling backspaces weirdly. Consider
-        # using a better OS.
+        # # Powershell due to it handling backspaces weirdly. Consider
+        # # using a better OS.
         # line_length %= terminal_width
         # logging.info(f"(%) line_length = {line_length}")
+
         self.builtin_print(
             f"\x1b[{line_length}C\x1b[1A", end="", flush=True
             )
-        logging.debug(f"line_length = {line_length}")
 
     def print(
             self, *values, sep=" ", end="\n", file=sys.stdout, flush=False,
@@ -189,7 +187,7 @@ class TerminalHistory(TempHistory):
         except IndexError:
             logging.debug("Attempted to assign to line, not yet initialised.")
             return
-        logging.info(f"line = {repr(text)}")
+        logging.debug(f"line = {repr(text)}")
         return
 
     def _reset_line(self, text):
@@ -197,49 +195,55 @@ class TerminalHistory(TempHistory):
         self.lines.append(text)
 
 
-    # def _record(self, text):
-    #     """Append `text` to current `line` or list of `lines`.
-
-    #     Overrides parent  `_record' method, preventing overwriting when
-    #     the line is finished and instead simply creating another line.
-    #     """
-    #     # TODO: expandtabs for everything
-    #     if text == "":
-    #         logging.debug("Premature return from _record.")
-    #         return
-    #     lines = handle_nl(text)
-    #     prev_line_ended = (self.current_line[-1] == "\n")
-
-    #     for line in lines:
-    #         if prev_line_ended:
-    #             self.lines.append(line.lstrip("\b"))
-    #         else:
-    #             self._prev_segment = self.current_line
-    #             # self.current_line = (self.current_line + line).expandtabs()
-    #             self.current_line += line
-    #             self.current_line = handle_bs(self.current_line)
+def expand_obscure_chars(text):
+    """Return expansion of formfeeds and vertical tabs."""
+    # Make handling splitting easier.
+    text = text.replace("\f", "\v")
+    parts = text.split("\v")
+    rep = parts[0]
+    for i, part in enumerate(parts[1:]):
+        so_far = "".join(parts[:i])
+        rep += "\n" + " " * len(so_far) + part
+    return rep
 
 
-def handle_bs(text):
+# def terminal_wrap(text, prev_segment):
+#     """Return a list of lines, wrapped weirdly."""
+#     terminal_width = shutil.get_terminal_size().columns
+#     # lines = textwrap.wrap(
+#     #     text, width=terminal_width, expand_tabs=False,
+#     #     replace_whitespace=False, drop_whitespace=False,
+#     #     break_long_words=True, break_on_hyphens=True
+#     #     )
+#     segment_before = text[:terminal_width]
+#     logging.info(f"segment_before = {repr(segment_before)}")
+#     segment_after = text[terminal_width + len(prev_segment):]
+#     logging.info(f"segment_after = {repr(segment_after)}")
+#     text = segment_before + segment_after
+#     logging.info(f"text = {repr(text)}")
+#     lines = []
+#     for i in range(0, len(text), terminal_width):
+#         chunk = text[i:terminal_width]
+#         if chunk:
+#             lines.append(chunk)
+#     logging.info(f"lines = {lines}")
+#     return lines
+
+
+def apply_bs(text):
     """Return text with backspaces replaced with nothing."""
     original = text
     regex = re.compile(".\b")
     logging.debug(f"(bs) match = {regex.search(text)}")
-    text = re.sub(regex, "", text)
+    while regex.search(text):
+        # Ensure "\b\b" doesn't backspace itself.
+        text = re.sub(regex, "", text, count=1)
+    # NOTE: Incompatible with PowerShell.
+    text = text.lstrip("\b")
     if text != original:
         logging.debug(f"(bs) before, text ={repr(original)}")
         logging.debug(f"(bs) after, text ={repr(text)}")
     return text
-
-
-def handle_cr(text):
-    """Return final text from carriage return abuse."""
-    text_versions = text.split("\r")
-    real_text = text_versions[-1]
-    if real_text != text:
-        logging.debug(f"(cr) before, text ={repr(text)}")
-        logging.debug(f"(cr) after, text={repr(real_text)}")
-    return real_text
 
 
 def _enable_print_after_input(record_all=False):
@@ -267,6 +271,7 @@ if __name__ == "__main__":
     enable_print_after_input()
     # _enable_print_after_input(record_all=True)
 
+    # hello = "Hello, "
     # hello = "\b\bHello, "
     # hello = "\bHe\rHello, "
     # hello = "\bHello, "
@@ -279,6 +284,7 @@ if __name__ == "__main__":
     name = input(newline=False)
     print(" ", end="")
     print("\b, how do you do? ", end="")
+    print(", how do you do? ", end="")
     input(newline=False)
     print(". Is this unaligned?")
     # with open("log.log") as log:

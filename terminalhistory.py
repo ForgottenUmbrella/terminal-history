@@ -33,11 +33,19 @@ class TempHistory:
 
     def __init__(self):
         """Initialise variables and save overwritten built-ins."""
-        self.line = None
+        self.line = ""
         # Used to handle long lines.
-        self._prev_segment = None
+        self._prev_segment = ""
         self.builtin_print = print
         self.builtin_input = input
+
+    def _reset_line(self, text):
+        """Assign `text` to `self.line` once it has terminated.
+
+        Method to be overridden by child classes.
+        """
+        self.line = text
+
 
     def _record(self, text):
         """Append `text` to `line` or overwrite it if it has ended.
@@ -45,32 +53,41 @@ class TempHistory:
         `text` may be empty, for flexibility, in which case nothing
         happens.
         """
+        # Allow flexibility in calling the method.
         if text == "":
-            # Allow flexibility in calling the method.
             logging.debug("Premature return from _record.")
             return
 
-        # TODO: handle_wrap here by adding "\n" to lines instead of
-        # using modulo hacks in _undo.
-        # XXX: exists as str.splitlines
-        lines = handle_nl(text)
-        prev_line_ended = (self.line is None or self.line[-1] == "\n")
+        # XXX
+        # lines = handle_nl(text)
+        lines = text.splitlines(True)
+        # Ensure the last line in `lines` is the current available line.
+        if lines[-1][-1] == "\n":
+            lines.append("")
 
-        if prev_line_ended:
-            # Account for `handle_bs` being unable to remove backspaces
-            # at the start of lines due to having no context.
-            # `.lstrip` can't be called in `handle_bs` because
-            # backspaces at the start could be valid when text comes
-            # after a line without a newline.
-            # NOTE: This is incompatible with Windows Powershell.
-            self.line = lines[-1].lstrip("\b")
-        else:
-            self._prev_segment = self.line
-            self.line += lines[-1]
-            # Account for potential backspace in beginning of the last
-            # line combining with `self.line` to form regex match which
-            # should be removed.
-            self.line = handle_bs(self.line)
+        for line in lines:
+            prev_line_ended = (self.line[-1] == "\n")
+            if prev_line_ended:
+                self._reset_line(line)
+            else:
+                self.line += line
+
+        # XXX
+        # if prev_line_ended:
+        #     # Account for `handle_bs` being unable to remove backspaces
+        #     # at the start of lines due to having no context.
+        #     # `.lstrip` can't be called in `handle_bs` because
+        #     # backspaces at the start could be valid when text comes
+        #     # after a line without a newline.
+        #     # NOTE: This is incompatible with Windows Powershell.
+        #     self.line = last_line.lstrip("\b")
+        # else:
+        #     self._prev_segment = self.line
+        #     self.line += lines[-1]
+        #     # Account for potential backspace in beginning of the last
+        #     # line combining with `self.line` to form regex match which
+        #     # should be removed.
+        #     self.line = handle_bs(self.line)
         logging.info(f"self.line = {repr(self.line)}")
         return
 
@@ -185,7 +202,7 @@ class TerminalHistory(TempHistory):
             logging.debug("Premature return from _record.")
             return
         lines = handle_nl(text)
-        prev_line_ended = (self.line is None or self.line[-1] == "\n")
+        prev_line_ended = (self.line[-1] == "\n")
 
         for line in lines:
             if prev_line_ended:

@@ -4,6 +4,7 @@
 import sys
 import os
 import platform
+import shutil
 import re
 import logging
 
@@ -20,7 +21,7 @@ if platform.system() == "Windows":
     else:
         colorama.init()
 else:
-    import readline
+    import readline  # pylint: disable=unused-import
 
 
 class TempHistory:
@@ -28,15 +29,13 @@ class TempHistory:
 
     Note: I use the term "echo" to refer to when text is
     shown on the terminal but might not be written to `sys.stdout`.
-
     """
 
     def __init__(self):
-        """Initialise `line` and save `print` and `input` functions."""
-        # `line` is initially set to "\n" so that the `_record` method
-        # doesn't raise an error about the string index being out of
-        # range.
-        self.line = "\n"
+        """Initialise variables and save overwritten built-ins."""
+        self.line = None
+        # Used to handle long lines.
+        self._prev_segment = None
         self.builtin_print = print
         self.builtin_input = input
 
@@ -45,12 +44,15 @@ class TempHistory:
 
         `text` may be empty, for flexibility, in which case nothing
         happens.
-
         """
         if text == "":
             # Allow flexibility in calling the method.
             logging.debug("Premature return from _record.")
             return
+
+        # TODO: handle_wrap here by adding "\n" to lines instead of
+        # using modulo hacks in _undo.
+        # XXX: exists as str.splitlines
         lines = handle_nl(text)
         prev_line_ended = (self.line is None or self.line[-1] == "\n")
 
@@ -60,10 +62,10 @@ class TempHistory:
             # `.lstrip` can't be called in `handle_bs` because
             # backspaces at the start could be valid when text comes
             # after a line without a newline.
-            # NOTE: This is potentially incompatible with Windows'
-            # conhost.exe.
+            # NOTE: This is incompatible with Windows Powershell.
             self.line = lines[-1].lstrip("\b")
         else:
+            self._prev_segment = self.line
             self.line += lines[-1]
             # Account for potential backspace in beginning of the last
             # line combining with `self.line` to form regex match which
@@ -84,9 +86,26 @@ class TempHistory:
         the terminal to move the text cursor forward to be in-line with
         the end of the previous line, and then move up into said line
         (making it the current line again).
-
         """
+        # terminal_width = shutil.get_terminal_size().columns
+        # logging.info(f"terminal_width = {terminal_width}")
         line_length = len(self.line)
+        # logging.info(f"self.line = {repr(self.line)}")
+        # logging.info(f"(original) line_length = {line_length}")
+        # if line_length > terminal_width:
+        #     # Modulo the previous segment to handle wrapping if it was
+        #     # really long.
+        #     prev_length = len(self._prev_segment) % terminal_width
+        #     logging.info(f"self._prev_segment = {repr(self._prev_segment)}")
+        #     logging.info(f"(%) prev_length = {prev_length}")
+        #     line_length -= prev_length
+        #     logging.info(f"(-) line_length = {line_length}")
+        # # Modulo the width to handle the long current line wrapping.
+        # # NOTE: Modulo operations are incompatible with Windows
+        # Powershell due to it handling backspaces weirdly. Consider
+        # using a better OS.
+        # line_length %= terminal_width
+        # logging.info(f"(%) line_length = {line_length}")
         self.builtin_print(
             f"\x1b[{line_length}C\x1b[1A", end="", flush=True
             )
@@ -99,7 +118,6 @@ class TempHistory:
 
         Other than recording the printed text by default, it behaves
         exactly like the built-in `print` function.
-
         """
         self.builtin_print(*values, sep=sep, end=end, file=file, flush=flush)
         logging.debug(f"file = {file}")
@@ -113,7 +131,6 @@ class TempHistory:
         Other than storing the echoed text and optionally stripping the
         echoed newline, it behaves exactly like the built-in `input`
         function.
-
         """
         response = self.builtin_input(prompt)
         using_stdin = (os.fstat(0) == os.fstat(1))
@@ -140,36 +157,34 @@ class TerminalHistory(TempHistory):
     def line(self):
         """Return the last line."""
         # If `self.lines` hasn't been initialised yet, it'll fail.
-        if not self.lines:
+        try:
+            return self.lines[-1]
+        except IndexError:
+            logging.debug("line referenced but not yet initialised.")
             return None
-        return self.lines[-1]
 
     @line.setter
     def line(self, text):
         """Set the last line."""
-        if not self.lines:
+        try:
+            self.lines[-1] = text
+        except IndexError:
+            logging.debug("Attempted to assign to line, not yet initialised.")
             return
-        self.lines[-1] = text
         logging.info(f"line = {repr(text)}")
         return
 
     def _record(self, text):
         """Append `text` to current `line` or list of `lines`.
 
-        Overrides TempHistory's `_record' method, preventing overwriting
-        when the line is finished and instead simply creating another
-        line.
-
+        Overrides parent  `_record' method, preventing overwriting when
+        the line is finished and instead simply creating another line.
         """
         # TODO: expandtabs for everything
         if text == "":
             logging.debug("Premature return from _record.")
             return
         lines = handle_nl(text)
-        # Handle first assignment's dummy value.
-        # if self.line is None:
-        #     self.line = lines.pop(0).lstrip("\b")
-        # prev_line_ended = (self.line[-1] == "\n")
         prev_line_ended = (self.line is None or self.line[-1] == "\n")
 
         for line in lines:
@@ -177,10 +192,9 @@ class TerminalHistory(TempHistory):
                 self.lines.append(line.lstrip("\b"))
             else:
                 self._prev_segment = self.line
-                # XXX: self.line = (self.line + line).expandtabs()
+                # self.line = (self.line + line).expandtabs()
                 self.line += line
                 self.line = handle_bs(self.line)
-        return
 
 
 def handle_bs(text):
@@ -190,11 +204,11 @@ def handle_bs(text):
     # Do not use the `.match` method. It only works at the beginning of
     # strings.
     while regex.search(text):
-        logging.info(f"match = {regex.search(text)}")
+        logging.debug(f"(bs) match = {regex.search(text)}")
         text = re.sub(regex, "", text)
     if text != original:
-        logging.info(f"(bs) before, text ={repr(original)}")
-        logging.info(f"(bs) after, text ={repr(text)}")
+        logging.debug(f"(bs) before, text ={repr(original)}")
+        logging.debug(f"(bs) after, text ={repr(text)}")
     return text
 
 
@@ -203,8 +217,8 @@ def handle_cr(text):
     text_versions = text.split("\r")
     real_text = text_versions[-1]
     if real_text != text:
-        logging.info(f"(cr) before, text ={repr(text)}")
-        logging.info(f"(cr) after, text={repr(real_text)}")
+        logging.debug(f"(cr) before, text ={repr(text)}")
+        logging.debug(f"(cr) after, text={repr(real_text)}")
     return real_text
 
 
@@ -231,20 +245,30 @@ def handle_nl(text):
     return lines
 
 
-def enable_print_after_input(use_temp=False):
-    """Overshadow the built-in `print` and `input` functions."""
-    global print
-    global input
-    record = TerminalHistory()
-    if use_temp:
+def _enable_print_after_input(record_all=False):
+    """Conveniently shadow built-in functions.
+
+    Use either `TempHistory` or `TerminalHistory`, which consumes more
+    memory, for testing purposes.
+    """
+    global print  # pylint: disable=global-variable-undefined
+    global input  # pylint: disable=global-variable-undefined
+    if record_all:
+        record = TerminalHistory()
+    else:
         record = TempHistory()
-    print = record.print
-    input = record.input
+    print = record.print  # pylint: disable=redefined-builtin
+    input = record.input  # pylint: disable=redefined-builtin
+
+
+def enable_print_after_input():
+    """Conveniently shadow built-in `print` and `input` functions."""
+    _enable_print_after_input(record_all=False)
 
 
 if __name__ == "__main__":
     enable_print_after_input()
-    # enable_print_after_input(True)
+    # _enable_print_after_input(record_all=True)
 
     # hello = "\b\bHello, "
     # hello = "\bHe\rHello, "

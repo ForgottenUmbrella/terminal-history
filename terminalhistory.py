@@ -4,7 +4,7 @@
 import sys
 import os
 import platform
-# import shutil
+import shutil
 import re
 import logging
 
@@ -101,14 +101,15 @@ class TempHistory:
         # Backspaces should be negative length, so just get rid of them.
         line = apply_bs(line)
         logging.debug(f"(b) line = {repr(line)}")
-        # XXX: Handle long lines.
-        # line = terminal_wrap(line, self._prev_segment)[-1]
-        # logging.debug(f"(%) line = {repr(line)}")
+        # Handle long lines.
+        line = terminal_wrap(line)[-1]
+        logging.debug(f"(%) line = {repr(line)}")
 
+        # XXX
         # terminal_width = shutil.get_terminal_size().columns
         # logging.debug(f"terminal_width = {terminal_width}")
         line_length = len(line)
-        # XXX: if line_length > terminal_width:
+        # if line_length > terminal_width:
         #     # Modulo the previous segment to handle wrapping if it was
         #     # really long.
         #     prev_length = len(self._prev_segment) % terminal_width
@@ -207,27 +208,28 @@ def expand_obscure_chars(text):
     return rep
 
 
-# def terminal_wrap(text, prev_segment):
-#     """Return a list of lines, wrapped weirdly."""
-#     terminal_width = shutil.get_terminal_size().columns
-#     # lines = textwrap.wrap(
-#     #     text, width=terminal_width, expand_tabs=False,
-#     #     replace_whitespace=False, drop_whitespace=False,
-#     #     break_long_words=True, break_on_hyphens=True
-#     #     )
-#     segment_before = text[:terminal_width]
-#     logging.info(f"segment_before = {repr(segment_before)}")
-#     segment_after = text[terminal_width + len(prev_segment):]
-#     logging.info(f"segment_after = {repr(segment_after)}")
-#     text = segment_before + segment_after
-#     logging.info(f"text = {repr(text)}")
-#     lines = []
-#     for i in range(0, len(text), terminal_width):
-#         chunk = text[i:terminal_width]
-#         if chunk:
-#             lines.append(chunk)
-#     logging.info(f"lines = {lines}")
-#     return lines
+def terminal_wrap(text):
+    """Return a list of lines, wrapped weirdly."""
+    terminal_width = shutil.get_terminal_size().columns
+    # XXX
+    # lines = textwrap.wrap(
+    #     text, width=terminal_width, expand_tabs=False,
+    #     replace_whitespace=False, drop_whitespace=False,
+    #     break_long_words=True, break_on_hyphens=True
+    #     )
+    # segment_before = text[:terminal_width]
+    # logging.info(f"segment_before = {repr(segment_before)}")
+    # segment_after = text[terminal_width + len(prev_segment):]
+    # logging.info(f"segment_after = {repr(segment_after)}")
+    # text = segment_before + segment_after
+    # logging.info(f"text = {repr(text)}")
+    lines = []
+    for i in range(0, len(text), terminal_width):
+        chunk = text[i:terminal_width]
+        if chunk:
+            lines.append(chunk)
+    logging.info(f"lines = {lines}")
+    return lines
 
 
 def apply_bs(text):

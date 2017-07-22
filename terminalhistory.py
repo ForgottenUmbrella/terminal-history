@@ -58,8 +58,6 @@ class TempHistory:
             logging.debug("Premature return from _record.")
             return
 
-        # XXX
-        # lines = handle_nl(text)
         lines = text.splitlines(True)
         # Ensure the last line in `lines` is the current available line.
         if lines[-1][-1] == "\n":
@@ -68,8 +66,10 @@ class TempHistory:
         for line in lines:
             prev_line_ended = (self.line[-1] == "\n")
             if prev_line_ended:
+                self._prev_segment = ""
                 self._reset_line(line)
             else:
+                self._prev_segment = self.line
                 self.line += line
 
         # XXX

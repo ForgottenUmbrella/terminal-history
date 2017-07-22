@@ -203,9 +203,8 @@ def handle_bs(text):
     regex = re.compile(".\b")
     # Do not use the `.match` method. It only works at the beginning of
     # strings.
-    while regex.search(text):
-        logging.debug(f"(bs) match = {regex.search(text)}")
-        text = re.sub(regex, "", text)
+    logging.debug(f"(bs) match = {regex.search(text)}")
+    text = re.sub(regex, "", text)
     if text != original:
         logging.debug(f"(bs) before, text ={repr(original)}")
         logging.debug(f"(bs) after, text ={repr(text)}")

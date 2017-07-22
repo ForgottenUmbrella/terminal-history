@@ -191,27 +191,32 @@ class TerminalHistory(TempHistory):
         logging.info(f"line = {repr(text)}")
         return
 
-    def _record(self, text):
-        """Append `text` to current `line` or list of `lines`.
+    def _reset_line(self, text):
+        """Append to `self.lines` instead."""
+        self.lines.append(text)
 
-        Overrides parent  `_record' method, preventing overwriting when
-        the line is finished and instead simply creating another line.
-        """
-        # TODO: expandtabs for everything
-        if text == "":
-            logging.debug("Premature return from _record.")
-            return
-        lines = handle_nl(text)
-        prev_line_ended = (self.line[-1] == "\n")
 
-        for line in lines:
-            if prev_line_ended:
-                self.lines.append(line.lstrip("\b"))
-            else:
-                self._prev_segment = self.line
-                # self.line = (self.line + line).expandtabs()
-                self.line += line
-                self.line = handle_bs(self.line)
+    # def _record(self, text):
+    #     """Append `text` to current `line` or list of `lines`.
+
+    #     Overrides parent  `_record' method, preventing overwriting when
+    #     the line is finished and instead simply creating another line.
+    #     """
+    #     # TODO: expandtabs for everything
+    #     if text == "":
+    #         logging.debug("Premature return from _record.")
+    #         return
+    #     lines = handle_nl(text)
+    #     prev_line_ended = (self.line[-1] == "\n")
+
+    #     for line in lines:
+    #         if prev_line_ended:
+    #             self.lines.append(line.lstrip("\b"))
+    #         else:
+    #             self._prev_segment = self.line
+    #             # self.line = (self.line + line).expandtabs()
+    #             self.line += line
+    #             self.line = handle_bs(self.line)
 
 
 def handle_bs(text):

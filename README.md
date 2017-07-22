@@ -1,25 +1,27 @@
 # Terminal History
-[A cleaner solution](http://stackoverflow.com/a/41436173/6379747) to the problem of printing on the same line as input. This
-solution works by moving the cursor after the newline has been echoed, but in
-order to do so effectively it needs to know the length of the terminal's last
-line, and therefore needs to record every line written.
+[A somewhat cleaner solution](http://stackoverflow.com/a/41436173/6379747) to
+the problem of printing on the same line as input. This solution works by
+moving the cursor after the terminal echoes the newline, but to do so it needs
+to know the length of the terminal's last line, which is why it needs to record
+every line written.
 
 ## Public Interface
 ### Classes
-* `TempHistory` - class for recording the latest line from the terminal
+* `TempHistory` - class for recording the latest line from the terminal (if you
+  use its methods)
 * `TerminalHistory` - subclass of TempHistory for recording **all** lines from
-  the terminal (but only if its methods are used)
+  the terminal
 
 ### Methods
-* `print(*values, sep=' ', end='\n', file=sys.stdout, flush=False, record=True`
+* `print(*values, sep=" ", end="\n", file=sys.stdout, flush=False, record=True`
 - behaves the same as the built-in `print` function, except it also records
-what's being printed if `record` is True
-* `input(prompt='', record=True, newline=True)` - behaves the same as the
-built-in `input` function, except it also records what's being prompted and
-typed, as well as stripping the newline if `newline` is False
+  what's printed if `record` is True
+* `input(prompt="", record=True, newline=True)` - behaves the same as the
+  built-in `input` function, except it also records the prompt and input, as
+  well as stripping the newline if `newline` is False
 
 ### Attributes
-* For TempHistory, `line` - the latest line echoed to the terminal
+* For TempHistory, `line` - the current available line for echoing
 * For TerminalHistory, `lines` - a list of all lines echoed to the terminal via
 the `print` and `input` methods
 
@@ -31,25 +33,23 @@ after getting input (as the name suggests)
 ## Example Usage
     import terminalhistory  # What's the convention for naming these anyway?
 
-    record = terminalhistory.TempHistory()
-    print = record.print  # For convenience
-    input = record.input
+    enable_print_after_input()
 
-    # flush=True because otherwise it waits for the line to terminate, which
-    # won't happen until the user inputs stuff
-    print('line one', end='', flush=True)
-    input('unsurprisingly also on line one, right? ', newline=False)
-    print('interestingly, also on line one??')
+    print("Line one. ", end="")
+    input("Also on line one, right? ", newline=False)
+    print(". This is also on line one.")
 
-Output:
+Output (with "yeah" as input):
 
-    line oneunsurprisingly also on line one, right? yeahinterestingly, also on
-    line one??
+    Line one. Also on line one, right? yeah. Also on line one.
 
 ## To do
-* Implement `write` method that replaces `sys.stdout.write` and `sys.stderr.write`,
-  behaving almost the same except with the additional recording functionality
+* Implement `write` method that replaces `sys.stdout.write` and
+  `sys.stderr.write`, behaving almost the same except with the additional
+  recording functionality
 * Implement `read`, `readline` and `readlines` methods that replace
-  `sys.stdin.read`, `sys.stdin.readline` and `sys.stdin.readlines` respectively,
-  except with the additional recording functionality as well
-* Handle long strings when navigating cursor back to previous position
+  `sys.stdin.read`, `sys.stdin.readline` and `sys.stdin.readlines`
+  respectively, with recording functionality as well
+* Handle long strings when the prompt has escape sequences (due to the built-in
+  `input` method, weird wrapping issues occur if you use escape sequences in
+  the prompt or `print(prompt, end="")`)

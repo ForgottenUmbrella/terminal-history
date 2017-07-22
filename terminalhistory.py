@@ -286,7 +286,6 @@ if __name__ == "__main__":
     name = input(newline=False)
     print(" ", end="")
     print("\b, how do you do? ", end="")
-    print(", how do you do? ", end="")
     input(newline=False)
     print(". Is this unaligned?")
     # with open("log.log") as log:
